@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_testing_lab/common/validation/form_field_validation.dart';
 
 class UserRegistrationForm extends StatefulWidget {
   const UserRegistrationForm({super.key});
@@ -13,6 +14,7 @@ class _UserRegistrationFormState extends State<UserRegistrationForm> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _nameController = TextEditingController();
+  FormFieldValidation formFieldValidation=FormFieldValidation();
 
   bool _isLoading = false;
   String _message = '';
@@ -55,15 +57,7 @@ class _UserRegistrationFormState extends State<UserRegistrationForm> {
                 labelText: 'Full Name',
                 border: OutlineInputBorder(),
               ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter your full name';
-                }
-                if (value.length < 2) {
-                  return 'Name must be at least 2 characters';
-                }
-                return null;
-              },
+              validator: (value) => formFieldValidation.validateName(value),
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -73,15 +67,7 @@ class _UserRegistrationFormState extends State<UserRegistrationForm> {
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.emailAddress,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter your email';
-                }
-                if (!isValidEmail(value)) {
-                  return 'Please enter a valid email';
-                }
-                return null;
-              },
+              validator: (value) => formFieldValidation.validateEmail(value),
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -92,15 +78,7 @@ class _UserRegistrationFormState extends State<UserRegistrationForm> {
                 helperText: 'At least 8 characters with numbers and symbols',
               ),
               obscureText: true,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter a password';
-                }
-                if (!isValidPassword(value)) {
-                  return 'Password is too weak';
-                }
-                return null;
-              },
+              validator: (value) => formFieldValidation.validatePassword(value),
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -110,19 +88,18 @@ class _UserRegistrationFormState extends State<UserRegistrationForm> {
                 border: OutlineInputBorder(),
               ),
               obscureText: true,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please confirm your password';
-                }
-                if (value != _passwordController.text) {
-                  return 'Passwords do not match';
-                }
-                return null;
-              },
+              validator: (value) => formFieldValidation.validateConfirmPassword(
+                value,
+                _passwordController.text,
+              ),
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: _isLoading ? null : _submitForm,
+              onPressed: () {
+                if (_formKey.currentState!.validate()) {
+                  _submitForm();
+                }
+              },
               child: _isLoading
                   ? const CircularProgressIndicator()
                   : const Text('Register'),
