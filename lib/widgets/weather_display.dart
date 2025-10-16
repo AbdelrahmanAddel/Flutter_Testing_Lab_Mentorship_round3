@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_testing_lab/functions/weather_operations.dart';
+import 'package:flutter_testing_lab/models/weather_model.dart';
 
 class WeatherDisplay extends StatefulWidget {
   const WeatherDisplay({super.key});
@@ -8,46 +10,13 @@ class WeatherDisplay extends StatefulWidget {
 }
 
 class _WeatherDisplayState extends State<WeatherDisplay> {
-  WeatherData? _weatherData;
+  WeatherModel? _weatherData;
   bool _isLoading = false;
   String? _error;
   bool _useFahrenheit = false;
   String _selectedCity = 'New York';
 
-  final List<String> _cities = ['New York', 'London', 'Tokyo', 'Invalid City'];
-
-  double celsiusToFahrenheit(double celsius) {
-    return celsius * 9 / 5;
-  }
-
-  double fahrenheitToCelsius(double fahrenheit) {
-    return fahrenheit - 32 * 5 / 9;
-  }
-
-  // Simulate API call that sometimes returns null or malformed data
-  Future<Map<String, dynamic>?> _fetchWeatherData(String city) async {
-    await Future.delayed(const Duration(seconds: 2));
-
-    if (city == 'Invalid City') {
-      return null;
-    }
-
-    
-    if (DateTime.now().millisecond % 4 == 0) {
-      return {'city': city, 'temperature': 22.5}; 
-    }
-
-    return {
-      'city': city,
-      'temperature': city == 'London' ? 15.0 : (city == 'Tokyo' ? 25.0 : 22.5),
-      'description': city == 'London'
-          ? 'Rainy'
-          : (city == 'Tokyo' ? 'Cloudy' : 'Sunny'),
-      'humidity': city == 'London' ? 85 : (city == 'Tokyo' ? 70 : 65),
-      'windSpeed': city == 'London' ? 8.5 : (city == 'Tokyo' ? 5.2 : 12.3),
-      'icon': city == 'London' ? '🌧️' : (city == 'Tokyo' ? '☁️' : '☀️'),
-    };
-  }
+  WeatherOperations weatherOperations = WeatherOperations();
 
   Future<void> _loadWeather() async {
     if (mounted) {
@@ -57,10 +26,13 @@ class _WeatherDisplayState extends State<WeatherDisplay> {
       });
     }
 
-    
-    final data = await _fetchWeatherData(_selectedCity);
+    final data = await weatherOperations.fetchWeatherData(_selectedCity);
     setState(() {
-      _weatherData = WeatherData.fromJson(data); 
+      if (data == null) {
+        _error = 'Failed to fetch weather data';
+      } else {
+        _weatherData = data;
+      }
       _isLoading = false;
     });
   }
@@ -87,7 +59,7 @@ class _WeatherDisplayState extends State<WeatherDisplay> {
                 child: DropdownButton<String>(
                   value: _selectedCity,
                   isExpanded: true,
-                  items: _cities.map((city) {
+                  items: weatherOperations.cities.map((city) {
                     return DropdownMenuItem(value: city, child: Text(city));
                   }).toList(),
                   onChanged: (value) {
@@ -127,9 +99,10 @@ class _WeatherDisplayState extends State<WeatherDisplay> {
           ),
           const SizedBox(height: 16),
 
-          if (_isLoading && _error == null)
+          if (_isLoading)
             const Center(child: CircularProgressIndicator())
-          
+          else if (_error != null)
+            Center(child: Text(_error!))
           else if (_weatherData != null)
             Card(
               elevation: 4,
@@ -141,7 +114,7 @@ class _WeatherDisplayState extends State<WeatherDisplay> {
                     Row(
                       children: [
                         Text(
-                          _weatherData!.icon,
+                          _weatherData!.icon ?? 'No Icon',
                           style: const TextStyle(fontSize: 48),
                         ),
                         const SizedBox(width: 16),
@@ -150,14 +123,14 @@ class _WeatherDisplayState extends State<WeatherDisplay> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                _weatherData!.city,
+                                _weatherData!.city ?? 'No City',
                                 style: const TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               Text(
-                                _weatherData!.description,
+                                _weatherData!.description ?? 'No Description',
                                 style: const TextStyle(
                                   fontSize: 18,
                                   color: Colors.grey,
@@ -172,8 +145,8 @@ class _WeatherDisplayState extends State<WeatherDisplay> {
                     Center(
                       child: Text(
                         _useFahrenheit
-                            ? '${celsiusToFahrenheit(_weatherData!.temperatureCelsius).toStringAsFixed(1)}°F'
-                            : '${_weatherData!.temperatureCelsius.toStringAsFixed(1)}°C',
+                            ? '${weatherOperations.celsiusToFahrenheit(_weatherData!.temperatureCelsius!).toStringAsFixed(1)}°F'
+                            : '${_weatherData!.temperatureCelsius!.toStringAsFixed(1)}°C',
                         style: const TextStyle(
                           fontSize: 48,
                           fontWeight: FontWeight.bold,
@@ -186,12 +159,12 @@ class _WeatherDisplayState extends State<WeatherDisplay> {
                       children: [
                         _buildWeatherDetail(
                           'Humidity',
-                          '${_weatherData!.humidity}%',
+                          '${_weatherData!.humidity ?? 0}%',
                           Icons.water_drop,
                         ),
                         _buildWeatherDetail(
                           'Wind Speed',
-                          '${_weatherData!.windSpeed} km/h',
+                          '${_weatherData!.windSpeed ?? 0} km/h',
                           Icons.air,
                         ),
                       ],
@@ -199,8 +172,7 @@ class _WeatherDisplayState extends State<WeatherDisplay> {
                   ],
                 ),
               ),
-            )
-          
+            ),
         ],
       ),
     );
@@ -217,36 +189,6 @@ class _WeatherDisplayState extends State<WeatherDisplay> {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ],
-    );
-  }
-}
-
-class WeatherData {
-  final String city;
-  final double temperatureCelsius;
-  final String description;
-  final int humidity;
-  final double windSpeed;
-  final String icon;
-
-  WeatherData({
-    required this.city,
-    required this.temperatureCelsius,
-    required this.description,
-    required this.humidity,
-    required this.windSpeed,
-    required this.icon,
-  });
-
-  
-  factory WeatherData.fromJson(Map<String, dynamic>? json) {
-    return WeatherData(
-      city: json!['city'],
-      temperatureCelsius: json['temperature'].toDouble(),
-      description: json['description'],
-      humidity: json['humidity'], 
-      windSpeed: json['windSpeed'].toDouble(), 
-      icon: json['icon'], 
     );
   }
 }
